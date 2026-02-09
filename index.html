@@ -1,24 +1,95 @@
 <!DOCTYPE html>
-<html dir="rtl">
+<html lang="ckb" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>پشکنینی پەیوەندی</title>
+    <title>پێشبڕکێی کۆلێژی پەروەردە</title>
+    
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-</head>
-<body style="font-family: sans-serif; text-align: center; padding: 50px;">
 
-    <h1>تێستی بەستنەوەی داتابەیس</h1>
-    
-    <div id="status-box" style="padding: 20px; background-color: yellow; font-size: 20px; font-weight: bold; border-radius: 10px;">
-        ⏳ چاوەڕێ بە، پەیوەندی دروست دەکرێت...
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rudaw&display=swap');
+        :root { --primary-color: #4a90e2; --secondary-color: #50e3c2; --bg-color: #f4f7f6; --card-bg: #ffffff; --text-color: #333; }
+        body { font-family: 'Rudaw', 'Tahoma', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: var(--text-color); }
+        .container { background: var(--card-bg); padding: 2rem; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); width: 90%; max-width: 500px; text-align: center; }
+        .logo { width: 100px; margin-bottom: 20px; }
+        .screen { display: none; animation: fadeIn 0.5s ease; }
+        .screen.active { display: block; }
+        h1 { font-size: 1.5rem; margin-bottom: 1rem; color: #2c3e50; }
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ddd; border-radius: 8px; font-family: inherit; box-sizing: border-box; }
+        .btn { background: var(--primary-color); color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-size: 1rem; margin-top: 10px; width: 100%; }
+        .options { display: flex; gap: 10px; margin-top: 20px; }
+        .answer-btn { flex: 1; padding: 15px; font-size: 1.2rem; transition: transform 0.1s; }
+        .answer-btn:active { transform: scale(0.95); }
+        .answer-btn:nth-child(1) { background-color: #27ae60; } /* سەوز بۆ ڕاست */
+        .answer-btn:nth-child(2) { background-color: #c0392b; } /* سور بۆ هەڵە */
+        .timer-bar { width: 100%; height: 6px; background: #eee; margin-bottom: 20px; border-radius: 3px; overflow: hidden; }
+        #time-left { height: 100%; background: var(--secondary-color); width: 100%; transition: width 1s linear; }
+        #countdown-number { font-size: 5rem; color: var(--primary-color); font-weight: bold; }
+        #leaderboard-list { list-style: none; padding: 0; text-align: right; max-height: 200px; overflow-y: auto; }
+        #leaderboard-list li { background: #f9f9f9; margin: 5px 0; padding: 8px; border-bottom: 1px solid #ddd; border-radius: 4px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="logo-container"><img src="logo.png" alt="College Logo" class="logo"></div>
+
+        <div id="welcome-screen" class="screen active">
+            <h1>پێشبڕکێی پرسیار و وەڵام</h1>
+            <p>خۆشحاڵین بە بەشداریکردنت</p>
+            <form id="user-form">
+                <input type="text" id="username" placeholder="ناوی سیانی" required>
+                <select id="department" required>
+                    <option value="" disabled selected>بەشەکەت هەڵبژێرە</option>
+                    <option value="Biology">بایۆلۆجی</option>
+                    <option value="Chemistry">کیمیا</option>
+                    <option value="Physics">فیزیا</option>
+                    <option value="Mathematics">ماتماتیک</option>
+                    <option value="Guidance">ڕێنمایی پەروەردەیی و دەروونی</option>
+                    <option value="Special Education">پەروەردەی تایبەت</option>
+                    <option value="English">زمانی ئینگلیزی</option>
+                    <option value="Arabic">زمانی عەرەبی</option>
+                    <option value="Kurdish">زمانی کوردی</option>
+                    <option value="Syriac">زمانی سریانی</option>
+                </select>
+                <button type="submit" class="btn">دەستپێکردن</button>
+            </form>
+        </div>
+
+        <div id="countdown-screen" class="screen">
+            <h2>ئامادەبە...</h2>
+            <div id="countdown-number">3</div>
+        </div>
+
+        <div id="quiz-screen" class="screen">
+            <div class="timer-bar"><div id="time-left"></div></div>
+            <h2 id="question-text" style="min-height: 80px;">پرسیار</h2>
+            <div class="options">
+                <button class="btn answer-btn" onclick="checkAnswer(true)">ڕاست</button>
+                <button class="btn answer-btn" onclick="checkAnswer(false)">هەڵە</button>
+            </div>
+            <p class="question-count">پرسیاری <span id="current-q">1</span> لە 10</p>
+        </div>
+
+        <div id="result-screen" class="screen">
+            <h2>تەواو بوو!</h2>
+            <p style="font-size: 1.5rem;">نمرەکەت: <strong id="final-score">0</strong> / 10</p>
+            <p id="save-status" style="color: gray;">خەریکە نمرەکەت تۆمار دەکرێت...</p>
+            
+            <button onclick="showLeaderboard()" class="btn secondary" style="background-color: #f39c12;">بینینی ڕیزبەندی ٢٠ یەکەمەکان</button>
+            
+            <div id="leaderboard" style="display:none; margin-top: 20px;">
+                <h3>ڕیزبەندی بەشداربووان</h3>
+                <ul id="leaderboard-list"></ul>
+            </div>
+        </div>
     </div>
 
-    <p id="error-details" style="color: red; margin-top: 20px;"></p>
-
     <script>
-        // 1. زانیارییەکانی فایەربەیس
+        // زانیارییەکانی فایەربەیس (هەمان ئەوەی تێستەکە)
         const firebaseConfig = {
             apiKey: "AIzaSyBhv5zKnpk4DV1w_s9y2vbrv17Fmdyw1qs",
             authDomain: "college-of-education-f5c3e.firebaseapp.com",
@@ -29,42 +100,134 @@
             measurementId: "G-1WJM3VEJQH"
         };
 
-        // 2. هەوڵی پەیوەستبوون
-        try {
-            firebase.initializeApp(firebaseConfig);
-            const db = firebase.firestore();
+        // دەستپێکردنی فایەربەیس
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // پرسیارەکان
+        const questions = [
+            { text: "ڤایرۆسەکان وەک زیندەوەرێکی تەواو پۆلێن دەکرێن چونکە دەتوانن بەبێ خانەی خانەخوێ (Host) گەشە بکەن.", answer: false },
+            { text: "ئەڵماس و گرافیت هەردووکیان لە گەردیلەی کاربۆن پێکدێن، بۆیە گرافیت ڕەقترین ماددەیە لە سروشتدا.", answer: false },
+            { text: "دەنگ لە بۆشاییدا (Space) خێراتر دەڕوات وەک لەوەی لە ناو ئاودا بڕوات.", answer: false },
+            { text: "هەر ژمارەیەک (جگە لە سفر) ئەگەر توانەکەی (Exponent) ببێتە سفر، ئەوا ئەنجامەکەی یەکسانە بە سفر.", answer: false },
+            { text: "بیردۆزی 'مەرجداربوونی کلاسیکی' (Classical Conditioning) کە تاقیکردنەوەی لەسەر سەگ کرد، لەلایەن زانا بی ئێف سکینەر پەرەی پێدراوە.", answer: false },
+            { text: "ئۆتیزم (Autism) جۆرە نەخۆشییەکی دەروونی کاتییە و دەتوانرێت بە بەکارهێنانی دەرمانی پزیشکی بە تەواوی بنبڕ بکرێت.", answer: false },
+            { text: "The word 'Information' is a countable noun, so we can say 'I have many informations'.", answer: false },
+            { text: "کاتێک وشەی (لم) دەچێتە سەر کرداری داهاتوو (الفعل المضارع)، نیشانەی کۆتاییەکەی دەگۆڕێت بۆ (الفتحة).", answer: false },
+            { text: "شاعیری ناودار 'هێمن موکریانی' نووسەری شاکارە شیعری 'مەم و زین'ـە.", answer: false },
+            { text: "پیتی (ܐ - ئالەف) لە زمانی سریانیدا، تەنها لە کۆتایی وشەدا دەنووسرێت و لە سەرەتای وشەدا نایەت.", answer: false }
+        ];
+
+        let currentQuestionIndex = 0, score = 0, timer, timeLeft = 8, userInfo = {};
+
+        // ناساندنی توخمەکان
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const countdownScreen = document.getElementById('countdown-screen');
+        const quizScreen = document.getElementById('quiz-screen');
+        const resultScreen = document.getElementById('result-screen');
+        const questionText = document.getElementById('question-text');
+        const currentQSpan = document.getElementById('current-q');
+        const timeLeftBar = document.getElementById('time-left');
+
+        // دەستپێکردن
+        document.getElementById('user-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            userInfo.name = document.getElementById('username').value;
+            userInfo.department = document.getElementById('department').value;
+            welcomeScreen.classList.remove('active');
+            startCountdown();
+        });
+
+        function startCountdown() {
+            countdownScreen.classList.add('active');
+            let count = 3;
+            const countDisplay = document.getElementById('countdown-number');
+            const countInterval = setInterval(() => {
+                count--;
+                countDisplay.innerText = count;
+                if (count <= 0) {
+                    clearInterval(countInterval);
+                    countdownScreen.classList.remove('active');
+                    startQuiz();
+                }
+            }, 1000);
+        }
+
+        function startQuiz() {
+            quizScreen.classList.add('active');
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= questions.length) { endQuiz(); return; }
+            const q = questions[currentQuestionIndex];
+            questionText.innerText = q.text;
+            currentQSpan.innerText = currentQuestionIndex + 1;
+            resetTimer();
+        }
+
+        function resetTimer() {
+            timeLeft = 8;
+            updateTimerUI();
+            clearInterval(timer);
+            timer = setInterval(() => {
+                timeLeft--;
+                updateTimerUI();
+                if (timeLeft <= 0) { clearInterval(timer); currentQuestionIndex++; loadQuestion(); }
+            }, 1000);
+        }
+
+        function updateTimerUI() { timeLeftBar.style.width = (timeLeft / 8) * 100 + "%"; }
+        
+        function checkAnswer(userChoice) { 
+            clearInterval(timer); 
+            if (userChoice === questions[currentQuestionIndex].answer) score++; 
+            currentQuestionIndex++; 
+            loadQuestion(); 
+        }
+
+        function endQuiz() {
+            quizScreen.classList.remove('active');
+            resultScreen.classList.add('active');
+            document.getElementById('final-score').innerText = score;
             
-            // 3. هەوڵی ناردنی داتایەک بۆ تێست
-            document.getElementById('status-box').innerText = "🔄 خەریکە داتا دەنێرێت...";
+            // ناردنی داتا بۆ فایەربەیس
+            const statusText = document.getElementById('save-status');
             
-            db.collection("connection_test").add({
-                test_message: "سڵاو! ئەمە بۆ تێستە",
-                time: new Date().toString()
-            })
-            .then((docRef) => {
-                // سەرکەوتوو بوو
-                const box = document.getElementById('status-box');
-                box.innerText = "✅ سەرکەوتوو بوو! پەیوەندی هەیە.";
-                box.style.backgroundColor = "#90EE90"; // ڕەنگی سەوز
-                box.style.color = "darkgreen";
+            db.collection("results").add({
+                name: userInfo.name,
+                department: userInfo.department,
+                score: score,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                statusText.innerText = "✅ نمرەکەت بە سەرکەوتوویی گەیشتە داتابەیس.";
+                statusText.style.color = "green";
+            }).catch((error) => {
+                statusText.innerText = "❌ هەڵە لە تۆمارکردن: " + error.message;
+                statusText.style.color = "red";
+            });
+        }
+
+        function showLeaderboard() {
+            const list = document.getElementById('leaderboard-list');
+            document.getElementById('leaderboard').style.display = 'block';
+            list.innerHTML = '<li>جار دەکرێت...</li>';
+            
+            db.collection("results").orderBy("score", "desc").limit(20).get()
+            .then((querySnapshot) => {
+                list.innerHTML = '';
+                if(querySnapshot.empty) {
+                    list.innerHTML = '<li>هیچ داتایەک نییە</li>';
+                }
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    list.innerHTML += `<li>${data.name} (${data.department}) - <strong>${data.score}</strong></li>`;
+                });
             })
             .catch((error) => {
-                // کێشە لە ناردن (Rules)
-                const box = document.getElementById('status-box');
-                box.innerText = "❌ پەیوەندی هەیە بەڵام داتا نانێرێت (Rules).";
-                box.style.backgroundColor = "#FFB6C1"; // ڕەنگی سور
-                document.getElementById('error-details').innerText = "هەڵە: " + error.message;
+                alert("کێشە لە هێنانی ڕیزبەندی: " + error.message);
             });
-
-        } catch (error) {
-            // کێشە لە کۆد (Config)
-            const box = document.getElementById('status-box');
-            box.innerText = "❌ هەڵە لە کۆدی فایەربەیس.";
-            box.style.backgroundColor = "red";
-            box.style.color = "white";
-            document.getElementById('error-details').innerText = error.message;
         }
     </script>
-
 </body>
 </html>
