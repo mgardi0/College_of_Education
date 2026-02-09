@@ -19,14 +19,14 @@
         tr:nth-child(even) { background-color: #f9f9f9; }
         .btn { display: inline-block; padding: 10px 20px; background: #27ae60; color: white; text-decoration: none; border-radius: 5px; margin: 10px; border: none; cursor: pointer; font-size: 16px; }
         #loading { font-weight: bold; color: blue; margin-top: 20px; }
-        #error-msg { color: red; font-weight: bold; display: none; }
+        #error-msg { color: red; font-weight: bold; display: none; margin-top: 20px; padding: 10px; background: #ffe6e6; border: 1px solid red; }
     </style>
 </head>
 <body>
 
     <div class="container" id="main-content" style="display:none;">
         <h1>لیستی نمرەی قوتابیان</h1>
-        <p id="total-count">ژمارەی بەشداربووان: ...</p>
+        <p id="total-count" style="font-weight: bold;">ژمارەی بەشداربووان: ...</p>
         
         <button onclick="exportToExcel()" class="btn">📥 داگرتنی ئەکسڵ (Excel)</button>
         <button onclick="location.reload()" class="btn" style="background:#f39c12">🔄 نوێکردنەوە</button>
@@ -48,19 +48,22 @@
     </div>
 
     <script>
-        // ١. پاسۆرد (بیگۆڕە ئەگەر ویستت)
+        // تعریفکردنی گۆڕاوەکان لە سەرەتاوە (بۆ چارەسەری کێشەکە)
+        let db;
+        let finalData = [];
+
+        // ١. پاسۆرد
         const password = prompt("پاسۆرد چییە؟ (1234)");
+        
         if (password === "1234") {
             document.getElementById('main-content').style.display = 'block';
-            initFirebase();
+            // ڕاستەوخۆ فایەربەیس ئیش پێ دەکەین
+            startApp();
         } else {
             document.body.innerHTML = "<h1 style='color:red; margin-top:50px;'>⛔ هەڵەیە، ڕێگەپێدراو نییە</h1>";
         }
 
-        let db;
-        let finalData = [];
-
-        function initFirebase() {
+        function startApp() {
             const firebaseConfig = {
                 apiKey: "AIzaSyBhv5zKnpk4DV1w_s9y2vbrv17Fmdyw1qs",
                 authDomain: "college-of-education-f5c3e.firebaseapp.com",
@@ -70,50 +73,62 @@
                 appId: "1:1014558650015:web:82a40961bfd5f750f4bcaa",
                 measurementId: "G-1WJM3VEJQH"
             };
-            
+
             try {
-                firebase.initializeApp(firebaseConfig);
+                // دڵنیابوونەوە لەوەی تەنها یەکجار پێناسە دەکرێت
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
                 db = firebase.firestore();
+                console.log("Firebase connected");
                 fetchData();
             } catch (err) {
-                showError("کێشە لە پەیوەستبوون: " + err.message);
+                showError("کێشە لە دەستپێکردنی فایەربەیس: " + err.message);
             }
         }
 
         function fetchData() {
-            // بەبێ ڕیزبەندی (Order) بۆ ئەوەی خێرا بێت و گیر نەخوات
+            const loading = document.getElementById('loading');
+            const tbody = document.querySelector('#results-table tbody');
+            
+            // هێنانی هەموو داتاکان
             db.collection("results").get()
             .then((querySnapshot) => {
-                document.getElementById('loading').style.display = 'none';
+                loading.style.display = 'none';
                 document.getElementById('total-count').innerText = "ژمارەی بەشداربووان: " + querySnapshot.size;
                 
-                const tbody = document.querySelector('#results-table tbody');
-                tbody.innerHTML = ""; // پاککردنەوە
+                tbody.innerHTML = "";
+                finalData = []; // پاککردنەوەی لیستی کۆن
+
+                if (querySnapshot.empty) {
+                    tbody.innerHTML = "<tr><td colspan='4'>هیچ داتایەک نییە</td></tr>";
+                    return;
+                }
 
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
                     
-                    // چارەسەری کێشەی کات (گرنگترین بەش)
+                    // چارەسەری کێشەی کات
                     let timeDisplay = "نادیار";
-                    if(data.timestamp) {
-                        if(data.timestamp.toDate) {
-                            // ئەگەر جۆری فایەربەیس بێت
+                    try {
+                        if(data.timestamp && data.timestamp.toDate) {
                             timeDisplay = data.timestamp.toDate().toLocaleString('en-US'); 
-                        } else {
-                            // ئەگەر تێست بێت (String)
+                        } else if (data.timestamp) {
                             timeDisplay = data.timestamp.toString();
                         }
+                    } catch(e) {
+                        timeDisplay = "هەڵە لە کات";
                     }
 
-                    // ئامادەکردن بۆ ئەکسڵ
+                    // خەزنکردن بۆ ئەکسڵ
                     finalData.push({
-                        Name: data.name,
-                        Department: data.department,
-                        Score: data.score,
+                        Name: data.name || "بێ ناو",
+                        Department: data.department || "بێ بەش",
+                        Score: data.score || 0,
                         Time: timeDisplay
                     });
 
-                    // خستنە ناو خشتە
+                    // پیشاندان لە خشتە
                     const row = `<tr>
                         <td>${data.name || '-'}</td>
                         <td>${data.department || '-'}</td>
@@ -138,11 +153,13 @@
         function exportToExcel() {
             if(finalData.length === 0) { alert("هیچ داتایەک نییە بۆ داگرتن!"); return; }
             
-            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // BOM بۆ خوێندنەوەی کوردی
             csvContent += "Name,Department,Score,Time\n";
 
             finalData.forEach(row => {
-                let r = `${row.Name},${row.Department},${row.Score},${row.Time}`;
+                // پاککردنەوەی ناوەکان لە کۆما (,) بۆ ئەوەی خشتەکە تێک نەدات
+                let cleanName = row.Name.toString().replace(/,/g, " ");
+                let r = `${cleanName},${row.Department},${row.Score},${row.Time}`;
                 csvContent += r + "\r\n";
             });
 
