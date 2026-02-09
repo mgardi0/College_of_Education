@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ckb" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>پەڕەی کۆنتڕۆڵ - ئەنجامەکان</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rudaw&display=swap');
+        body { font-family: 'Rudaw', sans-serif; padding: 20px; background: #f4f4f4; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background-color: #4a90e2; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        .btn { display: block; width: 100%; padding: 10px; background: #27ae60; color: white; text-align: center; text-decoration: none; border-radius: 5px; margin-top: 20px; border: none; cursor: pointer; font-size: 16px; }
+        .btn:hover { background: #219150; }
+        #loading { text-align: center; font-weight: bold; color: blue; }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="main-content" style="display:none;">
+        <h1>لیستی نمرەی قوتابیان</h1>
+        
+        <p id="total-count">ژمارەی بەشداربووان: 0</p>
+        
+        <button onclick="downloadExcel()" class="btn">📥 داگرتنی ئەنجامەکان (Excel)</button>
+
+        <table id="results-table">
+            <thead>
+                <tr>
+                    <th>ناو</th>
+                    <th>بەش</th>
+                    <th>نمرە (لە ١٠)</th>
+                    <th>کات</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+        <p id="loading">خەریکە داتا دەهێنێت...</p>
+    </div>
+
+    <script>
+        // ١. پاراستنی پەڕەکە (پاسۆرد)
+        const password = prompt("تکایە وشەی نهێنی بنووسە:");
+        if (password === "1234") { // لێرە دەتوانیت پاسۆردەکە بگۆڕیت
+            document.getElementById('main-content').style.display = 'block';
+            loadData();
+        } else {
+            alert("پاسۆرد هەڵەیە!");
+            document.body.innerHTML = "<h1 style='text-align:center; color:red;'>ڕێگەپێدراو نییە</h1>";
+        }
+
+        // ٢. فایەربەیس
+        const firebaseConfig = {
+            apiKey: "AIzaSyBhv5zKnpk4DV1w_s9y2vbrv17Fmdyw1qs",
+            authDomain: "college-of-education-f5c3e.firebaseapp.com",
+            projectId: "college-of-education-f5c3e",
+            storageBucket: "college-of-education-f5c3e.firebasestorage.app",
+            messagingSenderId: "1014558650015",
+            appId: "1:1014558650015:web:82a40961bfd5f750f4bcaa",
+            measurementId: "G-1WJM3VEJQH"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let allData = [];
+
+        // ٣. هێنانی داتا
+        function loadData() {
+            const tbody = document.querySelector('#results-table tbody');
+            const loading = document.getElementById('loading');
+            
+            db.collection("results").orderBy("timestamp", "desc").get().then((querySnapshot) => {
+                loading.style.display = 'none';
+                document.getElementById('total-count').innerText = "ژمارەی بەشداربووان: " + querySnapshot.size;
+
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    allData.push(data); // خەزنکردن بۆ ئێکسڵ
+
+                    // کاتەکە ڕێک دەخەین
+                    let timeString = "";
+                    if (data.timestamp) {
+                        const date = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+                        timeString = date.toLocaleTimeString('en-US');
+                    }
+
+                    const row = `<tr>
+                        <td>${data.name}</td>
+                        <td>${data.department}</td>
+                        <td>${data.score}</td>
+                        <td style="direction:ltr">${timeString}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            }).catch((error) => {
+                loading.innerText = "هەڵە: " + error.message;
+                loading.style.color = "red";
+            });
+        }
+
+        // ٤. داگرتن وەک ئێکسڵ
+        function downloadExcel() {
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // بۆ ئەوەی کوردی بخوێنێتەوە
+            csvContent += "Name,Department,Score,Time\n"; // سەردێڕەکان
+
+            allData.forEach(function(rowArray) {
+                let timeStr = rowArray.timestamp && rowArray.timestamp.toDate ? rowArray.timestamp.toDate().toLocaleString() : "";
+                let row = `${rowArray.name},${rowArray.department},${rowArray.score},${timeStr}`;
+                csvContent += row + "\r\n";
+            });
+
+            var encodedUri = encodeURI(csvContent);
+            var link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "Result_College_Quiz.csv");
+            document.body.appendChild(link);
+            link.click();
+        }
+    </script>
+</body>
+</html>
