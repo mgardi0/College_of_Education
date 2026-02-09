@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ckb" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>پێشبڕکێی کۆلێژی پەروەردە</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+    <div class="container">
+        <div class="logo-container">
+            <img src="logo.png" alt="College Logo" class="logo">
+        </div>
+
+        <div id="welcome-screen" class="screen active">
+            <h1>پێشبڕکێی پرسیار و وەڵام بۆ قوتابیانی کۆلێژی پەروەردە</h1>
+            <p>تكایە زانیارییەکانت بە تەواوی پڕبکەرەوە</p>
+            
+            <form id="user-form">
+                <input type="text" id="username" placeholder="ناوی سیانی" required>
+                
+                <select id="department" required>
+                    <option value="" disabled selected>بەشەکەت هەڵبژێرە</option>
+                    <option value="Biology">بایۆلۆجی</option>
+                    <option value="Chemistry">کیمیا</option>
+                    <option value="Physics">فیزیا</option>
+                    <option value="Mathematics">ماتماتیک</option>
+                    <option value="Guidance">ڕێنمایی پەروەردەیی و دەروونی</option>
+                    <option value="Special Education">پەروەردەی تایبەت</option>
+                    <option value="English">زمانی ئینگلیزی</option>
+                    <option value="Arabic">زمانی عەرەبی</option>
+                    <option value="Kurdish">زمانی کوردی</option>
+                    <option value="Syriac">زمانی سریانی</option>
+                </select>
+
+                <button type="submit" class="btn">دەستپێکردن</button>
+            </form>
+        </div>
+
+        <div id="countdown-screen" class="screen">
+            <h2>تاقیکردنەوە دەست پێ دەکات دوای...</h2>
+            <div id="countdown-number">3</div>
+        </div>
+
+        <div id="quiz-screen" class="screen">
+            <div class="timer-bar">
+                <div id="time-left"></div>
+            </div>
+            <h2 id="question-text">پرسیار لێرە دەنووسرێت</h2>
+            <div class="options">
+                <button class="btn answer-btn" onclick="checkAnswer(true)">ڕاست</button>
+                <button class="btn answer-btn" onclick="checkAnswer(false)">هەڵە</button>
+            </div>
+            <p class="question-count">پرسیاری <span id="current-q">1</span> لە 10</p>
+        </div>
+
+        <div id="result-screen" class="screen">
+            <h2>تەواو بوو!</h2>
+            <p>نمرەکەت: <span id="final-score">0</span> / 10</p>
+            <p id="message">سوپاس بۆ بەشداریکردنت</p>
+            <button onclick="showLeaderboard()" class="btn secondary">بینینی ئەنجامی بەشداربووان</button>
+            <div id="leaderboard" style="display:none; margin-top: 20px;">
+                <h3>ڕیزبەندی بەشداربووان</h3>
+                <ul id="leaderboard-list"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
