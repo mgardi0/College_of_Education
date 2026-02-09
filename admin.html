@@ -10,120 +10,150 @@
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Rudaw&display=swap');
-        body { font-family: 'Rudaw', sans-serif; padding: 20px; background: #f4f4f4; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #333; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        body { font-family: 'Rudaw', sans-serif; padding: 20px; background: #f4f4f4; text-align: center; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
         th { background-color: #4a90e2; color: white; }
-        tr:nth-child(even) { background-color: #f2f2f2; }
-        .btn { display: block; width: 100%; padding: 10px; background: #27ae60; color: white; text-align: center; text-decoration: none; border-radius: 5px; margin-top: 20px; border: none; cursor: pointer; font-size: 16px; }
-        .btn:hover { background: #219150; }
-        #loading { text-align: center; font-weight: bold; color: blue; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .btn { display: inline-block; padding: 10px 20px; background: #27ae60; color: white; text-decoration: none; border-radius: 5px; margin: 10px; border: none; cursor: pointer; font-size: 16px; }
+        #loading { font-weight: bold; color: blue; margin-top: 20px; }
+        #error-msg { color: red; font-weight: bold; display: none; }
     </style>
 </head>
 <body>
 
     <div class="container" id="main-content" style="display:none;">
         <h1>لیستی نمرەی قوتابیان</h1>
+        <p id="total-count">ژمارەی بەشداربووان: ...</p>
         
-        <p id="total-count">ژمارەی بەشداربووان: 0</p>
-        
-        <button onclick="downloadExcel()" class="btn">📥 داگرتنی ئەنجامەکان (Excel)</button>
+        <button onclick="exportToExcel()" class="btn">📥 داگرتنی ئەکسڵ (Excel)</button>
+        <button onclick="location.reload()" class="btn" style="background:#f39c12">🔄 نوێکردنەوە</button>
+
+        <p id="loading">⏳ خەریکە داتاکان دەهێنێت...</p>
+        <p id="error-msg"></p>
 
         <table id="results-table">
             <thead>
                 <tr>
                     <th>ناو</th>
                     <th>بەش</th>
-                    <th>نمرە (لە ١٠)</th>
+                    <th>نمرە</th>
                     <th>کات</th>
                 </tr>
             </thead>
-            <tbody>
-                </tbody>
+            <tbody></tbody>
         </table>
-        <p id="loading">خەریکە داتا دەهێنێت...</p>
     </div>
 
     <script>
-        // ١. پاراستنی پەڕەکە (پاسۆرد)
-        const password = prompt("تکایە وشەی نهێنی بنووسە:");
-        if (password === "1234") { // لێرە دەتوانیت پاسۆردەکە بگۆڕیت
+        // ١. پاسۆرد (بیگۆڕە ئەگەر ویستت)
+        const password = prompt("پاسۆرد چییە؟ (1234)");
+        if (password === "1234") {
             document.getElementById('main-content').style.display = 'block';
-            loadData();
+            initFirebase();
         } else {
-            alert("پاسۆرد هەڵەیە!");
-            document.body.innerHTML = "<h1 style='text-align:center; color:red;'>ڕێگەپێدراو نییە</h1>";
+            document.body.innerHTML = "<h1 style='color:red; margin-top:50px;'>⛔ هەڵەیە، ڕێگەپێدراو نییە</h1>";
         }
 
-        // ٢. فایەربەیس
-        const firebaseConfig = {
-            apiKey: "AIzaSyBhv5zKnpk4DV1w_s9y2vbrv17Fmdyw1qs",
-            authDomain: "college-of-education-f5c3e.firebaseapp.com",
-            projectId: "college-of-education-f5c3e",
-            storageBucket: "college-of-education-f5c3e.firebasestorage.app",
-            messagingSenderId: "1014558650015",
-            appId: "1:1014558650015:web:82a40961bfd5f750f4bcaa",
-            measurementId: "G-1WJM3VEJQH"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+        let db;
+        let finalData = [];
 
-        let allData = [];
-
-        // ٣. هێنانی داتا
-        function loadData() {
-            const tbody = document.querySelector('#results-table tbody');
-            const loading = document.getElementById('loading');
+        function initFirebase() {
+            const firebaseConfig = {
+                apiKey: "AIzaSyBhv5zKnpk4DV1w_s9y2vbrv17Fmdyw1qs",
+                authDomain: "college-of-education-f5c3e.firebaseapp.com",
+                projectId: "college-of-education-f5c3e",
+                storageBucket: "college-of-education-f5c3e.firebasestorage.app",
+                messagingSenderId: "1014558650015",
+                appId: "1:1014558650015:web:82a40961bfd5f750f4bcaa",
+                measurementId: "G-1WJM3VEJQH"
+            };
             
-            db.collection("results").orderBy("timestamp", "desc").get().then((querySnapshot) => {
-                loading.style.display = 'none';
+            try {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                fetchData();
+            } catch (err) {
+                showError("کێشە لە پەیوەستبوون: " + err.message);
+            }
+        }
+
+        function fetchData() {
+            // بەبێ ڕیزبەندی (Order) بۆ ئەوەی خێرا بێت و گیر نەخوات
+            db.collection("results").get()
+            .then((querySnapshot) => {
+                document.getElementById('loading').style.display = 'none';
                 document.getElementById('total-count').innerText = "ژمارەی بەشداربووان: " + querySnapshot.size;
+                
+                const tbody = document.querySelector('#results-table tbody');
+                tbody.innerHTML = ""; // پاککردنەوە
 
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
-                    allData.push(data); // خەزنکردن بۆ ئێکسڵ
-
-                    // کاتەکە ڕێک دەخەین
-                    let timeString = "";
-                    if (data.timestamp) {
-                        const date = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
-                        timeString = date.toLocaleTimeString('en-US');
+                    
+                    // چارەسەری کێشەی کات (گرنگترین بەش)
+                    let timeDisplay = "نادیار";
+                    if(data.timestamp) {
+                        if(data.timestamp.toDate) {
+                            // ئەگەر جۆری فایەربەیس بێت
+                            timeDisplay = data.timestamp.toDate().toLocaleString('en-US'); 
+                        } else {
+                            // ئەگەر تێست بێت (String)
+                            timeDisplay = data.timestamp.toString();
+                        }
                     }
 
+                    // ئامادەکردن بۆ ئەکسڵ
+                    finalData.push({
+                        Name: data.name,
+                        Department: data.department,
+                        Score: data.score,
+                        Time: timeDisplay
+                    });
+
+                    // خستنە ناو خشتە
                     const row = `<tr>
-                        <td>${data.name}</td>
-                        <td>${data.department}</td>
-                        <td>${data.score}</td>
-                        <td style="direction:ltr">${timeString}</td>
+                        <td>${data.name || '-'}</td>
+                        <td>${data.department || '-'}</td>
+                        <td style="font-weight:bold; color:${data.score >= 5 ? 'green' : 'red'}">${data.score}</td>
+                        <td style="direction:ltr; font-size:12px;">${timeDisplay}</td>
                     </tr>`;
                     tbody.innerHTML += row;
                 });
-            }).catch((error) => {
-                loading.innerText = "هەڵە: " + error.message;
-                loading.style.color = "red";
+            })
+            .catch((error) => {
+                showError("هەڵە لە هێنانی داتا: " + error.message);
             });
         }
 
-        // ٤. داگرتن وەک ئێکسڵ
-        function downloadExcel() {
-            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // بۆ ئەوەی کوردی بخوێنێتەوە
-            csvContent += "Name,Department,Score,Time\n"; // سەردێڕەکان
+        function showError(msg) {
+            document.getElementById('loading').style.display = 'none';
+            const errBox = document.getElementById('error-msg');
+            errBox.style.display = 'block';
+            errBox.innerText = msg;
+        }
 
-            allData.forEach(function(rowArray) {
-                let timeStr = rowArray.timestamp && rowArray.timestamp.toDate ? rowArray.timestamp.toDate().toLocaleString() : "";
-                let row = `${rowArray.name},${rowArray.department},${rowArray.score},${timeStr}`;
-                csvContent += row + "\r\n";
+        function exportToExcel() {
+            if(finalData.length === 0) { alert("هیچ داتایەک نییە بۆ داگرتن!"); return; }
+            
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+            csvContent += "Name,Department,Score,Time\n";
+
+            finalData.forEach(row => {
+                let r = `${row.Name},${row.Department},${row.Score},${row.Time}`;
+                csvContent += r + "\r\n";
             });
 
             var encodedUri = encodeURI(csvContent);
             var link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "Result_College_Quiz.csv");
+            link.setAttribute("download", "Quiz_Results.csv");
             document.body.appendChild(link);
             link.click();
         }
     </script>
+
 </body>
 </html>
